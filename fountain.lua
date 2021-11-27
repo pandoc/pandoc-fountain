@@ -134,7 +134,7 @@ G = P{ "Pandoc",
        * Ct((V"Inline" - P"]]")^0)
        * P"]]"
        / function(ils)
-           return pandoc.Note(pandoc.Plain(ils))
+           return pandoc.Span(ils, {class="Note", ["custom-style"]="Note"})
          end;
   Emph = P"*"
        * Ct((V"Strong" + (V"Inline" - P"*"))^1)

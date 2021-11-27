@@ -1,0 +1,50 @@
+/* CSS for Fountain */
+body {
+  font-family: Courier, monospace;
+  font-size: 12pt;
+  margin: auto;
+  max-width: 6in;
+  line-height: 1.2;
+}
+h1, h2, h3, h4, h5, h6 {
+  font-weight: bold;
+  font-size: 12pt;
+  text-align: center;
+}
+.Dialogue {
+  max-width: 4in;
+  margin: auto;
+  margin-top: 1em;
+}
+.Dialogue p {
+  margin: 0;
+}
+.Parenthetical {
+  margin-left: 2em;
+}
+.Lyrics {
+  font-style: italic;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+.Transition {
+  text-align: right;
+}
+.Note {
+  display: none;
+}
+.titlepage {
+  text-align: center;
+  margin-bottom: 2em;
+}
+nav#toc ol,
+nav#landmarks ol { padding: 0; margin-left: 1em; }
+nav#toc ol li,
+nav#landmarks ol li { list-style-type: none; margin: 0; padding: 0; }
+a.footnote-ref { vertical-align: super; }
+em, em em em, em em em em em { font-style: italic;}
+em em, em em em em { font-style: normal; }
+code{ white-space: pre-wrap; }
+span.smallcaps{ font-variant: small-caps; }
+span.underline{ text-decoration: underline; }
+q { quotes: "“" "”" "‘" "’"; }
