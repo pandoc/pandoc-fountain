@@ -1,8 +1,6 @@
 -- A custom reader for Fountain screenplay markup.
 -- https://fountain.io/
 
-local inspect=require'inspect'
-
 -- For better performance we put these functions in local variables:
 local P, S, R, Cf, Cc, Ct, V, Cs, Cg, Cb, B, C, Cmt =
   lpeg.P, lpeg.S, lpeg.R, lpeg.Cf, lpeg.Cc, lpeg.Ct, lpeg.V,
