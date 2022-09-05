@@ -149,6 +149,6 @@ G = P{ "Pandoc",
   Special = C(specialchar) / pandoc.Str ;
 }
 
-function Reader(input, opts)
-  return lpeg.match(G, input)
+function Reader(input)
+  return lpeg.match(G, tostring(input))
 end
