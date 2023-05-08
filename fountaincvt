@@ -1,0 +1,358 @@
+#!/opt/homebrew/bin/bash
+# -*- mode: sh; coding=utf-8; -*-
+# vim: expandtab copyindent preserveindent softtabstop=0 sw=4 ts=4 filetype=bash
+##############################################################################
+# Pandoc Fountain Conversion Wrapper Script 1.0
+# Tammy Cravit / tammy@tammymakesthings.com / tammymakesthings.com
+##############################################################################
+# Usage:
+#
+# 1. Clone the https://github.com/pandoc/pandoc-fountain. The default repo
+#    location is "${HOME}/projects/pandoc-fountain". You can adjust this in
+#    line 39 of the script, or set the PANDOC_FOUNTAIN environment variable
+#    to overwrite.
+#
+# 2. Run this script. Usage is:
+#
+#    convert.sh -h
+#    convert.sh [ -d ] [ -q ] [-o output_file] [-x extra_opts] input_file format
+#
+#    You can provide extra command-line options to pandoc (for example, to set
+#    output file metadata) by setting any of these environment variables:
+#
+#        PANDOC_PDF_EXTRA_OPTS
+#        PANDOC_HTML_EXTRA_OPTS
+#        PANDOC_EPUB_EXTRA_OPTS
+#        PANDOC_DOCX_EXTRA_OPTS
+#
+# The script sets the following exit status codes:
+#
+#       0 - successful run
+#     100 - input file not specified
+#     101 - input file not found (tries "$1" and "$1.fountain")
+#     102 - invalid output file format
+#     200 - pandoc not found (you can set the PANDOC environment variable if
+#           your pandoc executable isn't in your path)
+#     201 - pandoc-fountain directory not found
+#     202 - a required file is missing from the pandoc-fountain directory
+#     203 - the 'wkhtmltopdf' binary (needed for PDF generation) was not found.
+#############################################################################
+
+export PANDOC_FOUNTAIN=${PANDOC_FOUNTAIN:-"$HOME/projects/pandoc-fountain"}
+export PANDOC=${PANDOC:-"$(which pandoc | cut -d' ' -f1)"}
+export PANDOC_PDF_EXTRA_OPTS="${PANDOC_PDF_EXTRA_OPTS:-}"
+export PANDOC_HTML_EXTRA_OPTS="${PANDOC_HTML_EXTRA_OPTS:-}"
+export PANDOC_EPUB_EXTRA_OPTS="${PANDOC_EPUB_EXTRA_OPTS:-}"
+export PANDOC_DOCX_EXTRA_OPTS="${PANDOC_DOCX_EXTRA_OPTS:-}"
+
+export FOUNTAINCVT_VERSION="1.00"
+export FOUNTAINCVT_DATE="2023-05-08"
+
+export QUIET_MODE=""
+export SUPPRESS_TOOLS_CHECK=""
+export EXTRA_CONVERT_ARGS=""
+export VERBOSE="yes"
+
+function D() {
+    if [ "${VERBOSE}" = "yes" ]
+    then
+        >&2 echo "[DEBUG] $*"
+    fi
+}
+
+function print_banner() {
+    D "entering print_banner()"
+    echo "******************************************************************************"
+    echo "*****               Pandoc Fountain Conversion Wrapper ${FOUNTAINCVT_VERSION}              *****"
+    echo "*****  Tammy Cravit / tammy@tammymakesthings.com / tammymakesthings.com  *****"
+    echo "******************************************************************************"
+    echo ""
+    D "leaving print_banner()"
+}
+
+function print_usage() {
+    echo "Usage: $(basename $0) -h"
+    echo "       $(basename $0) [ -v ] [ -d ] [ -q ] [-o output_file] [-x extra_opts]" \
+         "<input_file> <output_format>"
+    echo ""
+    echo "Command-Line Options:"
+    echo "    -v                     Enable debugging messages."
+    echo "    -d                     Skip tools checks."
+    echo "    -q                     Quiet mode (less verbose output)."
+    echo "    -o <output_file>       Override the automatically set output file."
+    echo "    -x <extra_options>     Add extra options to Pandoc. See below for"
+    echo "                           an important note if using this option."
+    echo ""
+    echo "Environment Variables:"
+    echo "    PANDOC                  Location of the 'pandoc' binary."
+    echo "                            Searched for in the path if not set."
+    echo "                            Current Value: ${PANDOC}"
+    echo "    PANDOC_FOUNTAIN         Location of the 'pandoc-fountain' files."
+    echo "                            Defaults to '${HOME}/projects/pandoc-fountain'."
+    echo "                            Current Value: ${PANDOC_FOUNTAIN}"
+    echo "    PANDOC_PDF_EXTRA_OPTS   Extra options for pandoc for PDF conversion."
+    echo "                            Current Value: ${PANDOC_PDF_EXTRA_OPTS:-<none>}"
+    echo "    PANDOC_HTML_EXTRA_OPTS  Extra options for pandoc for HTML conversion."
+    echo "                            Current Value: ${PANDOC_HTML_EXTRA_OPTS:-<none>}"
+    echo "    PANDOC_EPUB_EXTRA_OPTS  Extra options for pandoc for EPUB conversion."
+    echo "                            Current Value: ${PANDOC_EPUB_EXTRA_OPTS:-<none>}"
+    echo "    PANDOC_DOCX_EXTRA_OPTS  Extra options for pandoc for DOCX conversion."
+    echo "                            Current Value: ${PANDOC_DOCX_EXTRA_OPTS:-<none>}"
+    echo ""
+    echo "NOTE: If any of the PANDOC_*_EXTRA_OPTS variables are set, those options"
+    echo "      will be applied IN ADDITION TO options specified with the '-x'"
+    echo "      flag."
+
+    echo ""
+    echo "Version: ${FOUNTAINCVT_VERSION}, ${FOUNTAINCVT_DATE}"
+    echo "https://github.com/tammymakesthings/pandoc-fountain"
+
+}
+
+function check_for_tools() {
+    D "entering check_for_tools()"
+    if [ ! -x "${PANDOC}" ]
+    then
+        echo "Could not find pandoc in '${PANDOC}' - please install it before continuing!"
+        exit 200
+    fi
+
+    if [ ! -d "${PANDOC_FOUNTAIN}" ]
+    then
+        echo "Could not find PANDOC_FOUNTAIN directory '${PANDOC_FOUNTAIN}'!"
+        echo "Clone https://github.com/pandoc/pandoc-fountain to '${PANDOC_FOUNTAIN}' and try again."
+        exit 201
+    fi
+
+    for file in fountain.lua fountain.css fountain.html5 fountain.epub3 fountain-ref.docx
+    do
+        if [ ! -f "${PANDOC_FOUNTAIN}/${file}" ]
+        then
+            echo "Could not find '${file}' in '${PANDOC_FOUNTAIN}'!"
+            echo "Clone https://github.com/pandoc/pandoc-fountain to '${PANDOC_FOUNTAIN}' and try again."
+            exit 202
+        fi
+    done
+
+    if [ ! -x "$(which wkhtmltopdf | cut -d" " -f1)" ]
+    then
+        echo "Could not find wkhtmltopdf - please install it before continuing."
+        exit 203
+    fi
+    D "leaving check_for_tools()"
+}
+
+function validate_args() {
+    D "entering validate_args()"
+    if [ "${INPUT_FILE}" = "" ]
+    then
+        echo "Error: Input file not specified!"
+        exit 100
+    fi
+
+    if [ ! -f "${INPUT_FILE}" -a ! -f "${INPUT_FILE}.fountain" ]
+    then
+        echo "Could not find input file '$1' or '$1.fountain'!"
+        exit 101
+    fi
+
+    if [ "${OUTPUT_FORMAT}" = "" ]
+    then
+        echo "Error: Output format not specified!"
+        exit 102
+    fi
+
+    export OUTPUT_FILE="${OUTPUT_FILE:-${INPUT_FILE}.${OUTPUT_FORMAT}}"
+    export FILE_BASENAME="$(basename ${INPUT_FILE} .fountain)"
+    D "leaving validate_args()"
+}
+
+function display_settings() {
+    D "entering display_settings()"
+    echo "===================="
+    echo "Conversion Settings:"
+    echo "===================="
+    echo ""
+    echo "                  Input File: '${INPUT_FILE}'"
+    echo "               Output Format: ${OUTPUT_FORMAT}"
+    echo "                 Output File: '${OUTPUT_FILE}'"
+
+    if [ "${SUPPRESS_TOOLS_CHECK}" = "yes" ]
+    then
+        echo "       Tool Dependency Check: Skipped"
+    fi
+
+    case ${OUTPUT_FORMAT} in
+        html)
+            echo "     HTML Conversion Options: ${PANDOC_HTML_EXTRA_OPTS:-<none>}"
+            ;;
+        pdf)
+            echo "      PDF Conversion Options: ${PANDOC_PDF_EXTRA_OPTS:-<none>}"
+            ;;
+        docx)
+            echo "     DOCX Conversion Options: ${PANDOC_DOCX_EXTRA_OPTS:-<none>}"
+            ;;
+        epub)
+            echo "     EPUB Conversion Options: ${PANDOC_EPUB_EXTRA_OPTS:-<none>}"
+            ;;
+    esac
+    if [ "${EXTRA_CONVERT_ARGS}" != "" ]
+    then
+        echo "    Extra Conversion Options: ${EXTRA_CONVERT_ARGS}"
+    fi
+    echo ""
+    D "leaving display_settings()"
+}
+
+function convert_to_html {
+    D "convert_to_html() - converting '${INPUT_FILE}' to '${OUTPUT_FILE}'"
+    "${PANDOC}" \
+        -f "{PANDOC_FOUNTAIN}/fountain.lua" \
+        "${INPUT_FILE}" \
+        -s \
+        -t html5 \
+        --css "${PANDOC_FOUNTAIN}/fountain.css" \
+        --template "${PANDOC_FOUNTAIN}/fountain.html5" \
+        ${PANDOC_HTML_EXTRA_OPTS} ${EXTRA_CONVERT_ARGS} \
+        -o "${OUTPUT_FILE}"
+}
+
+function convert_to_pdf {
+    D "convert_to_pdf() - converting '${INPUT_FILE}' to '${OUTPUT_FILE}'"
+    "${PANDOC}" \
+        -f "${PANDOC_FOUNTAIN}/fountain.lua" \
+        "${INPUT_FILE}" \
+        -s \
+        -t html5 \
+        --css "${PANDOC_FOUNTAIN}/fountain.css" \
+        --template "${PANDOC_FOUNTAIN}/fountain.html5" \
+        ${PANDOC_PDF_EXTRA_OPTS} ${EXTRA_CONVERT_ARGS} \
+        -o "${OUTPUT_FILE}"
+}
+
+function convert_to_epub {
+    D "convert_to_epub() - converting '${INPUT_FILE}' to '${OUTPUT_FILE}'"
+    "${PANDOC}" \
+        -f "{PANDOC_FOUNTAIN}/fountain.lua" \
+        "${INPUT_FILE}" \
+        -s \
+        -t html5 \
+        --css "${PANDOC_FOUNTAIN}/fountain.css" \
+        --template "${PANDOC_FOUNTAIN}/fountain.epub3" \
+        ${PANDOC_EPUB_EXTRA_OPTS}  ${EXTRA_CONVERT_ARGS} \
+        -o "${OUTPUT_FILE}"
+}
+
+function convert_to_docx {
+    D "convert_to_docx() - converting '${INPUT_FILE}' to '${OUTPUT_FILE}'"
+    "${PANDOC}" \
+        -f "${PANDOC_FOUNTAIN}/fountain.lua" \
+        --reference-doc "${PANDOC_FOUNTAIN}/fountain-ref.docx" \
+        "${INPUT_FILE}" \
+        ${PANDOC_DOCX_EXTRA_OPTS}  ${EXTRA_CONVERT_ARGS} \
+        -o "${OUTPUT_FILE}"
+}
+
+function process_options() {
+    while getopts 'hqdf:x:vo:' OPTION
+    do
+        case "${OPTION}" in
+        h)
+            D "process_options() - got '-h' - displaying help and exiting"
+            print_banner
+            print_usage
+            exit 0
+            ;;
+        v)
+            D "process_options() - got '-v' - setting VERBOSE to 'yes'"
+            export VERBOSE="yes"
+            ;;
+        q)
+            D "process_options() - got '-q' - setting QUIET_MODE to 'yes'"
+            export QUIET_MODE="yes"
+            ;;
+        d)
+            D "process_options() - got '-d' - setting SUPPRESS_TOOLS_CHECK to 'yes'"
+            export SUPPRESS_TOOLS_CHECK="yes"
+            ;;
+        i)
+            D "process_options() - got '-i' - setting INPUT_FILE to '${OPTARG}'"
+            export INPUT_FILE="${OPTARG}"
+            ;;
+        o)
+            D "process_options() - got '-o' - setting OUTPUT_FILE to '${OPTARG}'"
+            export OUTPUT_FILE="${OPTARG}"
+            ;;
+        f)
+            D "process_options() - got '-f' - setting OUTPUT_FORMAT to '${OPTARG}'"
+            export OUTPUT_FORMAT="${OPTARG}"
+            ;;
+        x)
+            D "process_options() - got '-x' - setting EXTRA_CONVERT_ARGS to '${OPTARG}'"
+            export EXTRA_CONVERT_ARGS="${OPTARG}"
+            ;;
+        *)
+            D "process_options() - read unrecognized option '${OPTION} with value '${OPTARG:-no value-}'"
+            echo "Unrecognized option '${OPTION}'!"
+            print_usage
+            exit 222
+            ;;
+        esac
+    done
+    shift $(($OPTIND - 1));
+    export POSITIONAL_INPUT_FILE="$1"
+    export POSITIONAL_OUTPUT_FORMAT="$2"
+    export OUTPUT_FILE=${OUTPUT_FILE:-"$(basename $POSITIONAL_INPUT_FILE .fountain).${POSITIONAL_OUTPUT_FORMAT}"}
+}
+
+function do_conversion() {
+    case ${OUTPUT_FORMAT} in
+        pdf)
+            convert_to_pdf
+            ;;
+        epub)
+            convert_to_epub
+            ;;
+        html)
+            convert_to_html
+            ;;
+        docx)
+            convert_to_docx
+            ;;
+        *)
+            echo "Unrecognized output format '${OUTPUT_FORMAT}'!"
+            exit 220
+            ;;
+    esac
+}
+
+function main() {
+    print_banner
+    process_options $*
+
+    if [ "${POSITIONAL_INPUT_FILE}" != "" ]
+    then
+        D "main(): Got input file '${POSITIONAL_INPUT_FILE}' from positional parameters"
+        export INPUT_FILE="${POSITIONAL_INPUT_FILE}"
+    fi
+    if [ "${POSITIONAL_OUTPUT_FORMAT}" != "" ]
+    then
+        D "main(): Got output format '${POSITIONAL_OUTPUT_FORMAT}' from positional parameters"
+        export OUTPUT_FORMAT="$(echo ${POSITIONAL_OUTPUT_FORMAT} | tr [A-Z] [a-z])"
+    fi
+
+    validate_args
+
+    if [ "${SUPPRESS_TOOLS_CHECK}" != "yes" ]
+    then
+        check_for_tools
+    fi
+    if [ "${QUIET_MODE}" != "yes" ]
+    then
+        display_settings
+    fi
+    do_conversion
+}
+
+main $*
+exit 0
