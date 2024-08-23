@@ -23,13 +23,15 @@ pandoc -f fountain.lua --reference-doc fountain-ref.docx \
   sample.fountain -o sample.docx
 ```
 
-To convert to PDF (assuming you have wkhtmltopdf installed):
+To convert to PDF (assuming you have [pagedjs-cli] installed):
 
 ```
 pandoc -f fountain.lua sample.fountain -s -t html5 \
-  --css fountain.css --template ./fountain.html5 -o sample.pdf
+  --css fountain.css --template ./fountain.html5 \
+  --pdf-engine=pagedjs-cli -o sample.pdf
 ```
 
 [Fountain]: https://fountain.io/
 [custom pandoc reader]: https://pandoc.org/custom-readers.html
+[pagedjs-cli]: https://www.npmjs.com/package/pagedjs-cli
 
